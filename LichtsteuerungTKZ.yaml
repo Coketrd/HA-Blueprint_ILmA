@@ -1,0 +1,283 @@
+blueprint:
+  name: Intelligente Lichtsteuerung mit Anwesenheitshelfer
+  description: |
+    **Steuert das Licht im Wohnzimmer basierend auf Tür-, Bewegungs- und Helligkeitssensoren. Und aktiviert optional einen Anwesenheitshelfer** 
+    
+    Die Helligkeitsschwelle und der Abschaltzeitpunkt der Bewegungserkennung kann über einen Schieberegler eingestellt werden.
+    Optional kann ein **Anwesenheitshelfer** die Anwesenheit im Raum darstellen, welchen man für andere Aktionen wie zb. die Zuordnung der TTS Meldungen verwenden kann.
+    Optional kann ein **Anschaltblocker** integriert werden. Dieser wird über eine externe Automation mit sämtlichen persönlichen Raumeinstellungen aktiviert und deaktiviert.
+    Optional kann ein **Ausschaltblocker** integriert werden. Dieser wird über eine externe Automation mit sämtlichen persönlichen Raumeinstellungen aktiviert und deaktiviert.
+
+  domain: automation
+  input:
+    door_sensor:
+      name: Türsensor
+      description: >
+        Wähle den Türsensor oder eine Türsensorgruppe aus die das Ein- und Austreten des Raumes erfassen.
+        Dieser Sensor ist ein Pflichtfeld.
+      selector:
+        entity:
+          domain: binary_sensor
+    motion_sensor:
+      name: Bewegungssensor
+      description: >
+        Wähle den Bewegungssensor oder Bewegungsmeldergruppe aus, welcher sich im Raum befindet und den Anwesenheitsstatus des Raumes signalisiert.
+        Dieser Sensor ist ein Pflichtfeld.
+      selector:
+        entity:
+          domain: binary_sensor
+    brightness_sensor:
+      name: Helligkeitssensor
+      description: >
+        Wähle den Helligkeitssensor oder Helligkeitssensorgruppe aus, welcher sich im Raum befindet. 
+        Dieser sollte sich an einer geeigneten Position im Raum befinden, da mit diesem das Anschalten gesteuert wird.
+        Dieser Sensor ist ein Pflichtfeld.
+      selector:
+        entity:
+          domain: sensor
+    light_switch:
+      name: Licht
+      description: |
+        Wähle das Licht oder Lichtgruppe aus, welche im Raum automatisiert geschaltet werden soll. 
+        - **Aktivierung des Lichtes** findet statt wenn die Tür geöffnet oder eine Bewegung erfasst wird.
+        - **Deaktivierung des Lichtes** wird durchgeführt wenn keine Bewegung mehr zur eingestellten Dauer festgestellt wurde.
+      selector:
+        entity:
+          domain: light
+    presence_helper:
+      name: Anwesenheitshelfer (optional)
+      description: |
+        **Wählen Sie einen Anwesenheitshelfer aus (optional).**
+        Der Anwesenheitshelfer wird nach folgenden Regeln aktiviert und deaktiviert.
+        
+        - **Aktivierung des Helfers** findet statt wenn das Licht angeschaltet, die Türe geöffnet oder eine Bewegung erfasst wird. 
+        - **Deaktivierung des Helfers**
+            - Wenn das Licht ausgeschaltet wird und für mindestens 1 Minute aus bleibt, die Türe geschlossen ist und der Bewegungsmelder für die eingestellten Dauer keine Erkennung meldet und der Ausschaltblocker deaktiviert ist.
+            - Wenn keine Bewegung mehr zur eingestellten Dauer registriert wird, das Licht für mindestens 1 Minute aus ist, die Türe geschlossen ist und der Ausschaltblocker deaktiviert ist.
+            - Wenn die Türe geschlossen wird, keine Bewegung mehr zur eingestellten Dauer registriert wird und der Ausschaltblocker deaktiviert ist.
+      default: Anwesenheitshelfer.none
+      selector:
+        entity:
+          domain: input_boolean
+    turn_on_blocker:
+      name: Anschaltblocker (optional)
+      description: |
+        **Wählen Sie einen Anschaltblocker aus (optional).**
+        Wenn der Anschaltblocker aktiv ist, wird ein Anschalten des Lichtes verhindert auch wenn eine Bewegung oder Türöffnung erkannt wird.
+        Dies ist nützlich wenn ein Licht im Kinderzimmer nachts zum Beispiel nicht angeschaltet werden soll.
+        Der Anschaltblocker muss aus einer externen Automation gesteuert werden, dies ermöglicht eine persönliche Anpassung der Automation.
+      default: Anschaltblocker.none
+      selector:
+        entity:
+          domain: input_boolean
+    turn_off_blocker:
+      name: Ausschaltblocker (optional)
+      default: Ausschaltblocker.none
+      description: |
+        **Wählen Sie einen Ausschaltblocker aus (optional).**
+        Wenn der Ausschaltblocker aktiv ist, wird ein Ausschalten des Lichtes verhindert auch wenn keine Bewegung erkannt wird.
+        Dies ist nützlich wenn Sie sich längere Zeit nicht bewegen zum Beispiel beim Fernseh schauen.
+        Der Ausschaltblocker muss aus einer externen Automation gesteuert werden, dies ermöglicht eine persönliche Anpassung der Automation.
+      selector:
+        entity:
+          domain: input_boolean
+    motion_off_time:
+      name: Zeit für Bewegung aus (Minuten)
+      description: Zeit in Minuten, nach der das Licht ausgehen soll, wenn keine Bewegung erkannt wird.
+      default: 15
+      selector:
+        number:
+          min: 1
+          max: 60
+          mode: slider
+    brightness_threshold:
+      name: Helligkeitsschwelle
+      description: Helligkeit unter der das Licht eingeschaltet wird.
+      default: 1000
+      selector:
+        number:
+          min: 0
+          max: 2000
+          mode: slider
+
+
+trigger:
+  - platform: state
+    entity_id: !input door_sensor
+    from: "off"
+    to: "on"
+    id: Tür-zu-auf
+  - platform: state
+    entity_id: !input door_sensor
+    from: "on"
+    to: "off"
+    id: Tür-auf-zu
+  - platform: state
+    entity_id: !input motion_sensor
+    id: Bewegung
+    to: "on"
+  - platform: state
+    entity_id: !input motion_sensor
+    id: Bewegung aus
+    to: "off"
+    for:
+      hours: 0
+      minutes: !input motion_off_time
+      seconds: 0
+  - platform: state
+    entity_id: !input light_switch
+    from: "off"
+    to: "on"
+    id: Licht-aus-an
+  - platform: state
+    entity_id: !input light_switch
+    from: "on"
+    to: "off"
+    id: Licht-an-aus
+  - platform: numeric_state
+    entity_id: !input brightness_sensor
+    below: !input brightness_threshold
+    id: Lux unter
+  - platform: numeric_state
+    entity_id: !input brightness_sensor
+    id: Lux über
+    above: !input brightness_threshold
+
+condition: []
+
+action:
+  - alias: Optionen für das Anschalten des Lichts und aktivieren des Anwesenheitshelfers
+    choose:
+      - conditions:
+          - condition: trigger
+            id:
+              - Tür-zu-auf
+              - Bewegung
+              - Lux unter
+          - condition: state
+            entity_id: !input light_switch
+            state: "off"
+          - condition: numeric_state
+            entity_id: !input brightness_sensor
+            below: !input brightness_threshold
+          - condition: state
+            entity_id: !input turn_on_blocker
+            state: "off"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: !input light_switch
+          - action: input_boolean.turn_on
+            target:
+              entity_id: !input presence_helper
+        alias: Wenn das Licht aus, der Lux-Wert unter X und der Anschaltblocker aus ist, dann schalte das Licht ein und aktiviere den Anwesenheitshelfer
+      - conditions:
+          - condition: trigger
+            id:
+              - Tür-zu-auf
+              - Bewegung
+              - Licht-aus-an
+          - condition: numeric_state
+            entity_id: !input brightness_sensor
+            above: !input brightness_threshold
+        sequence:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: !input presence_helper
+        alias: Wenn das Licht eingeschaltet, die Tür geöffnet oder eine Bewegung festgestellt wird, und der Lux Wert über X ist dann aktiviere den Anwesenheitshelfer
+
+  - alias: Optionen für das Ausschalten des Lichts und deaktivieren des Anwesenheitshelfers
+    choose:
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: and
+                conditions:
+                  - condition: trigger
+                    id:
+                      - Bewegung aus
+                  - condition: state
+                    entity_id: !input light_switch
+                    state: "on"
+                  - condition: state
+                    entity_id: !input turn_off_blocker
+                    state: "off"
+        sequence:
+          - action: light.turn_off
+            target:
+              entity_id: !input light_switch
+          - action: input_boolean.turn_off
+            target:
+              entity_id: !input presence_helper
+      - conditions:
+          - condition: or
+            conditions:
+              - condition: and
+                conditions:
+                  - condition: trigger
+                    id:
+                      - Licht-an-aus
+                  - condition: state
+                    entity_id: !input light_switch
+                    for:
+                      hours: 0
+                      minutes: 1
+                      seconds: 0
+                    state: "off"
+                  - condition: state
+                    entity_id: !input door_sensor
+                    state: "off"
+                  - condition: state
+                    entity_id: !input motion_sensor
+                    state: "off"
+                    for:
+                      hours: 0
+                      minutes: !input motion_off_time
+                      seconds: 0
+                  - condition: state
+                    entity_id: !input turn_off_blocker
+                    state: "off"
+              - condition: and
+                conditions:
+                  - condition: trigger
+                    id:
+                      - Bewegung aus
+                  - condition: state
+                    entity_id: !input light_switch
+                    for:
+                      hours: 0
+                      minutes: 1
+                      seconds: 0
+                    state: "off"
+                  - condition: state
+                    entity_id: !input door_sensor
+                    state: "off"
+                  - condition: state
+                    entity_id: !input turn_off_blocker
+                    state: "off"
+              - condition: and
+                conditions:
+                  - condition: trigger
+                    id:
+                      - Tür-auf-zu
+                  - condition: state
+                    entity_id: !input light_switch
+                    for:
+                      hours: 0
+                      minutes: 1
+                      seconds: 0
+                    state: "off"
+                  - condition: state
+                    entity_id: !input motion_sensor
+                    state: "off"
+                    for:
+                      hours: 0
+                      minutes: !input motion_off_time
+                      seconds: 0
+                  - condition: state
+                    entity_id: !input turn_off_blocker
+                    state: "off"
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: !input presence_helper
