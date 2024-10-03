@@ -1,7 +1,7 @@
 blueprint:
   name: Intelligente Lichtsteuerung mit Anwesenheitshelfer
   description: |
-    **Steuert das Licht im Wohnzimmer basierend auf Tür-, Bewegungs- und Helligkeitssensoren. Und aktiviert optional einen Anwesenheitshelfer** 
+    **Steuert das Licht basierend auf Tür-, Bewegungs- und Helligkeitssensoren. Und aktiviert optional einen Anwesenheitshelfer** 
     
     Die Helligkeitsschwelle und der Abschaltzeitpunkt der Bewegungserkennung kann über einen Schieberegler eingestellt werden.
     Optional kann ein **Anwesenheitshelfer** die Anwesenheit im Raum darstellen, welchen man für andere Aktionen wie zb. die Zuordnung der TTS Meldungen verwenden kann.
